@@ -2,7 +2,47 @@
 
 $(function() {
   var animationEndPrefixes = "animationend webkitAnimationEnd oAnimationEnd MSAnimationEnd";
+  function timer(){}
+  timer.prototype = {
+        interval: 0,
+        callCount: 0,
+        startTime: null,
+        selectedTimeInterval: 0,
+        meditationProgressTimer: null,
+        run: function(){
+            if (!this.startTime) {
+                this.startTime = Date.now();
+            }
+            var elapsed = parseInt((Date.now() - this.startTime) / 1000.0);
+            var timeRemaining = (this.selectedTimeInterval * 60) - elapsed;
 
+            var minutesRemaining = parseInt(timeRemaining / 60);
+            var secondsRemaining = timeRemaining % 60;
+            function doubleDigits(num) {
+            if (num < 10) {
+                return "0" + num;
+            }
+                return num;
+            }
+            $("#meditation-text").html(doubleDigits(minutesRemaining) + ":" +
+                                 doubleDigits(secondsRemaining));
+            if (timeRemaining > 0) {
+                var temp = this;
+                this.meditationProgressTimer = window.setTimeout(function(){ temp.run() }, 1000);
+            } else {
+                // we're done
+                $("#meditation-text").html("<span class='blink'>00:00</span>");
+                window.clearTimeout(this.meditationProgressTimer);
+            }
+            if($("#intervalset").is(':checked') && (this.callCount++ % this.interval == 0)){
+                $("#bell").get(0).pause();
+                $("#bell").get(0).currentTime = 0;
+                $("#bell").get(0).play();
+            }
+        }
+    };
+
+  var t = new timer();
   function setupTimer() {
     var timeIntervals = [10, 15, 20, 25, 30, 35, 40];
     var selectedTimeInterval = parseInt(window.localStorage.defaultTimeInterval);
@@ -38,12 +78,13 @@ $(function() {
         lock.unlock();
         lock = null;
       }
-      window.clearTimeout(meditationProgressTimer);
+      window.clearTimeout(t.meditationProgressTimer);
       meditationProgressTimer = null;
       intervalSelected(selectedTimeInterval);
       $("#about-link").show();
       $("#start-button").html("Begin");
     }
+    var meditationProgressTimer = null;
 
     $("#start-button").click(function() {
       if (window.navigator.requestWakeLock) {
@@ -56,44 +97,17 @@ $(function() {
         return;
       }
 
+      meditationProgressTimer = window.setTimeout(function() {
+        t.interval = $("#interval").val();
+        t.selectedTimeInterval = selectedTimeInterval;
+        t.meditationProgressTimer = meditationProgressTimer;
+        t.run();
+      }, 1000);
+
       $("#start-button").html("Cancel");
       $("#about-link").hide();
       $("#meditation-text").html("Prepare for meditation " +
                                  "<span class='blink'>...</span>");
-      var startTime = null;
-      meditationProgressTimer = window.setTimeout(function() {
-        if (!startTime) {
-          startTime = Date.now();
-        }
-        function timerFired() {
-          var elapsed = parseInt((Date.now() - startTime) / 1000.0);
-          var timeRemaining = (selectedTimeInterval * 60) - elapsed;
-
-          var minutesRemaining = parseInt(timeRemaining / 60);
-          var secondsRemaining = timeRemaining % 60;
-          function doubleDigits(num) {
-            if (num < 10) {
-              return "0" + num;
-            }
-            return num;
-          }
-          $("#meditation-text").html(doubleDigits(minutesRemaining) + ":" +
-                                     doubleDigits(secondsRemaining));
-          if (timeRemaining > 0) {
-            meditationProgressTimer = window.setTimeout(timerFired, 1000);
-          } else {
-            // we're done
-            $("#meditation-text").html("<span class='blink'>00:00</span>");
-            $("#bell").get(0).currentTime = 0;
-            $("#bell").get(0).play();
-
-            $("#bell").on("ended", reset);
-          }
-        }
-        $("#bell").get(0).play();
-        timerFired();
-      }, 10*1000);
-    });
 
     $("#about-link").click(function() {
       $("#meditation-dialog").fadeOut("fast", function() {
@@ -106,6 +120,7 @@ $(function() {
         })
       });
     });
-  }
+  }); //Start button .click
+  }//Setup timer
   setupTimer();
 });
