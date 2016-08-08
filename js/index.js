@@ -9,8 +9,8 @@ $(function() {
         startTime: null,
         selectedTimeInterval: 0,
         meditationProgressTimer: null,
-        run: function(){
-            if (!this.startTime) {
+        run: function(restart){
+            if (restart) {
                 this.startTime = Date.now();
             }
             var elapsed = parseInt((Date.now() - this.startTime) / 1000.0);
@@ -19,9 +19,9 @@ $(function() {
             var minutesRemaining = parseInt(timeRemaining / 60);
             var secondsRemaining = timeRemaining % 60;
             function doubleDigits(num) {
-            if (num < 10) {
-                return "0" + num;
-            }
+                if (num < 10) {
+                    return "0" + num;
+                }
                 return num;
             }
             $("#meditation-text").html(doubleDigits(minutesRemaining) + ":" +
@@ -39,6 +39,13 @@ $(function() {
                 $("#bell").get(0).currentTime = 0;
                 $("#bell").get(0).play();
             }
+        },
+        reset: function(){
+          $("#bell").off();
+          window.clearTimeout(this.meditationProgressTimer);
+          this.meditationProgressTimer = null;
+          $("#about-link").show();
+          $("#start-button").html("Begin");
         }
     };
 
@@ -49,7 +56,6 @@ $(function() {
     if ($.inArray(selectedTimeInterval, timeIntervals) < 0) {
       selectedTimeInterval = 20;
     }
-    var meditationProgressTimer = null;
     var lock = null;
 
     $("#content").html(ich.meditationDialog({ 'duration': selectedTimeInterval }));
@@ -72,36 +78,29 @@ $(function() {
     intervalSelected(selectedTimeInterval);
 
     function reset() {
-      $("#bell").off();
-
-      if (lock) {
-        lock.unlock();
-        lock = null;
-      }
-      window.clearTimeout(t.meditationProgressTimer);
-      meditationProgressTimer = null;
-      intervalSelected(selectedTimeInterval);
-      $("#about-link").show();
-      $("#start-button").html("Begin");
+        if(lock){
+            lock.unlock();
+            lock = null;
+        }
+        intervalSelected(selectedTimeInterval);
+        t.reset();
     }
-    var meditationProgressTimer = null;
 
     $("#start-button").click(function() {
       if (window.navigator.requestWakeLock) {
         // currently only works on FirefoxOS :(
         lock = window.navigator.requestWakeLock('screen');
       }
-      if (meditationProgressTimer) {
+      if (t.meditationProgressTimer) {
         $("#bell").get(0).pause(); // stop bell if playing
         reset();
         return;
       }
 
-      meditationProgressTimer = window.setTimeout(function() {
+      t.meditationProgressTimer = window.setTimeout(function() {
         t.interval = $("#interval").val();
         t.selectedTimeInterval = selectedTimeInterval;
-        t.meditationProgressTimer = meditationProgressTimer;
-        t.run();
+        t.run(true);
       }, 1000);
 
       $("#start-button").html("Cancel");
